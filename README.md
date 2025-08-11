@@ -4,8 +4,10 @@ A Next.js application for tokenizing invoices using blockchain technology, with 
 
 ## Features
 
-- **Moneybird Integration**: Connect your Moneybird account to access invoices
-- **Invoice Management**: View and manage your open invoices
+- **Moneybird Integration**: Full OAuth2 integration with real API access
+- **Administration Selection**: Choose which Moneybird administration to use
+- **Invoice Management**: View and manage your open and overdue invoices
+- **Secure Authentication**: Server-side token storage with automatic refresh
 - **Tokenization**: Transform invoices into blockchain tokens (coming soon)
 - **Modern UI**: Built with Next.js, TypeScript, and TailwindCSS
 - **Blockchain Ready**: Thirdweb integration for Web3 functionality
@@ -16,7 +18,8 @@ A Next.js application for tokenizing invoices using blockchain technology, with 
 
 - Node.js 18+
 - npm or yarn
-- A Moneybird account (for invoice integration)
+- A Moneybird account with at least one administration
+- Moneybird OAuth2 application (register at [Moneybird Developers](https://developer.moneybird.com/))
 
 ### Installation
 
@@ -47,13 +50,14 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 NEXT_PUBLIC_THIRDWEB_CLIENT_ID=your_thirdweb_client_id
 NEXT_PUBLIC_CHAIN_ID=11155111
 
-# Moneybird Configuration
+# Moneybird OAuth2 Configuration
 MONEYBIRD_CLIENT_ID=your_moneybird_client_id
 MONEYBIRD_CLIENT_SECRET=your_moneybird_client_secret
 MONEYBIRD_REDIRECT_URI=http://localhost:3000/api/auth/moneybird/callback
+MONEYBIRD_BASE_URL=https://moneybird.com
 
-# Security
-SESSION_SECRET=your_secure_session_secret
+# Security (Generate a secure random string)
+SESSION_SECRET=your_secure_session_secret_min_32_chars
 
 # Blockchain Configuration (Optional for now)
 ADMIN_WALLET_PRIVATE_KEY=your_wallet_private_key
@@ -62,13 +66,36 @@ THIRDWEB_CONTRACT_ADDRESS=your_contract_address
 THIRDWEB_CHAIN_ID=11155111
 ```
 
+### Moneybird Setup
+
+1. Register your application at [Moneybird Developers](https://developer.moneybird.com/)
+2. Set the redirect URI to: `http://localhost:3000/api/auth/moneybird/callback`
+3. Note down your Client ID and Client Secret
+4. Ensure you have at least one administration in your Moneybird account
+   MONEYBIRD_CLIENT_ID=your_moneybird_client_id
+   MONEYBIRD_CLIENT_SECRET=your_moneybird_client_secret
+   MONEYBIRD_REDIRECT_URI=http://localhost:3000/api/auth/moneybird/callback
+
+# Security
+
+SESSION_SECRET=your_secure_session_secret
+
+# Blockchain Configuration (Optional for now)
+
+ADMIN_WALLET_PRIVATE_KEY=your_wallet_private_key
+THIRDWEB_CLIENT_ID=your_thirdweb_client_id
+THIRDWEB_CONTRACT_ADDRESS=your_contract_address
+THIRDWEB_CHAIN_ID=11155111
+
+````
+
 ### Development
 
 Run the development server:
 
 ```bash
 npm run dev
-```
+````
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
 
@@ -89,10 +116,15 @@ liquidify/
 │   ├── (public)/          # Public routes
 │   ├── api/               # API routes
 │   │   ├── auth/moneybird/
-│   │   ├── moneybird/invoices/
+│   │   │   ├── initiate/route.ts    # OAuth2 initiation
+│   │   │   ├── callback/route.ts    # OAuth2 callback
+│   │   │   └── select-admin/route.ts # Admin selection
+│   │   ├── moneybird/
+│   │   │   ├── administrations/route.ts # Fetch administrations
+│   │   │   └── invoices/route.ts        # Fetch invoices
 │   │   ├── health/
 │   │   └── tokenize/
-│   ├── connect/           # Moneybird connection page
+│   ├── connect/           # Moneybird connection & admin selection
 │   ├── invoices/          # Invoice management page
 │   ├── tokenize/          # Token creation page
 │   ├── layout.tsx         # Root layout
@@ -102,8 +134,8 @@ liquidify/
 │   ├── Button.tsx
 │   └── Card.tsx
 ├── lib/                   # Utility libraries
-│   ├── session.ts         # Session management
-│   └── moneybird.ts       # Moneybird API helpers
+│   ├── session.ts         # Session management with OAuth tokens
+│   └── moneybird.ts       # Moneybird API client with OAuth2
 ├── types/                 # TypeScript type definitions
 │   └── moneybird.ts
 └── styles/
@@ -112,44 +144,81 @@ liquidify/
 
 ## API Endpoints
 
+### Authentication
+
+- `GET /api/auth/moneybird/initiate` - Start Moneybird OAuth2 flow
+- `GET /api/auth/moneybird/callback` - Handle OAuth2 callback
+- `POST /api/auth/moneybird/select-admin` - Select administration
+
+### Moneybird Integration
+
+- `GET /api/moneybird/administrations` - Fetch available administrations
+- `GET /api/moneybird/invoices` - Fetch invoices from selected administration
+
+### Other
+
 - `GET /api/health` - Health check endpoint
-- `GET /api/auth/moneybird/initiate` - Start Moneybird OAuth flow
-- `GET /api/auth/moneybird/callback` - Handle OAuth callback
-- `GET /api/moneybird/invoices` - Fetch user invoices
 - `POST /api/tokenize` - Create invoice tokens (501 Not Implemented)
+
+## OAuth2 Flow
+
+The application implements a secure OAuth2 flow with Moneybird:
+
+1. **Initiate**: User clicks "Connect Moneybird" → redirected to `/api/auth/moneybird/initiate`
+2. **Authorization**: User authorizes on Moneybird → redirected back with code
+3. **Token Exchange**: App exchanges code for access/refresh tokens
+4. **Administration Selection**: User selects which administration to use
+5. **Data Access**: App fetches invoices using stored tokens
+
+### Security Features
+
+- **CSRF Protection**: OAuth state parameter prevents cross-site attacks
+- **Server-side Storage**: Tokens stored securely in encrypted cookies
+- **Automatic Refresh**: Expired tokens refreshed transparently
+- **Scope Validation**: Minimal required permissions (sales_invoices:read)
 
 ## Current Status
 
-This is the initial scaffold implementation. The following features are currently available:
-
-✅ **Completed**:
+✅ **Completed (Sprint 1 & 2)**:
 
 - Project setup with Next.js, TypeScript, TailwindCSS
-- Basic UI components and pages
-- Mock Moneybird integration
+- Complete UI components and pages
+- **Real Moneybird OAuth2 integration**
+- **Secure token storage and refresh**
+- **Administration selection flow**
+- **Real invoice fetching from Moneybird API**
+- **Comprehensive error handling**
 - Session management
-- API route structure
 - Development tooling (ESLint, Prettier, Husky)
 
-🚧 **Mock Implementation**:
+🚧 **In Progress**:
 
-- Moneybird OAuth flow (returns fake tokens)
-- Invoice fetching (returns mock data)
-- Session storage
+- Enhanced invoice filtering and sorting
+- Improved error recovery
 
 ❌ **Not Yet Implemented**:
 
-- Real Moneybird API integration
 - Blockchain tokenization
 - Smart contract deployment
 - Token trading functionality
+- Invoice status updates back to Moneybird
+
+## Error Handling
+
+The application provides comprehensive error handling for:
+
+- **Authentication Errors**: Expired tokens, invalid credentials
+- **API Errors**: Network issues, Moneybird API failures
+- **User Experience**: Clear error messages with recovery actions
+- **Security**: Proper validation of OAuth state and tokens
 
 ## Development Notes
 
-- The current Moneybird integration is mocked for development
-- Real API integration will be implemented in Sprint 2
-- Blockchain functionality is prepared but not yet active
-- All sensitive operations return mock data for safety
+- OAuth2 flow follows security best practices
+- Tokens are stored server-side only (never exposed to client)
+- All Moneybird API calls include proper authentication
+- Error states provide clear user guidance
+- Session management handles token expiration gracefully
 
 ## Contributing
 

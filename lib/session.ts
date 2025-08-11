@@ -2,8 +2,20 @@ import { getIronSession } from 'iron-session';
 import { cookies } from 'next/headers';
 
 export interface SessionData {
+  // OAuth tokens
   mbAccessToken?: string;
+  mbRefreshToken?: string;
+  mbTokenExpiresAt?: number; // Unix timestamp
+
+  // User selections
   mbAdministrationId?: string;
+  mbAdministrationName?: string;
+
+  // Connection state
+  connected?: boolean;
+
+  // OAuth state for CSRF protection
+  oauthState?: string;
 }
 
 const sessionOptions = {

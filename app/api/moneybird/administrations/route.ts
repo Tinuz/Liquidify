@@ -9,25 +9,17 @@ export async function GET() {
     // Check if user is authenticated
     if (!session.connected || !session.mbAccessToken) {
       return NextResponse.json(
-        { error: 'Not connected to Moneybird' },
+        { error: 'Not authenticated with Moneybird' },
         { status: 401 }
       );
     }
 
-    // Check if administration is selected
-    if (!session.mbAdministrationId) {
-      return NextResponse.json(
-        { error: 'No administration selected' },
-        { status: 400 }
-      );
-    }
+    // Fetch administrations from Moneybird
+    const administrations = await moneybirdApi.getAdministrations();
 
-    // Fetch invoices from Moneybird
-    const invoices = await moneybirdApi.getInvoices(session.mbAdministrationId);
-
-    return NextResponse.json(invoices);
+    return NextResponse.json(administrations);
   } catch (error) {
-    console.error('Error fetching invoices:', error);
+    console.error('Error fetching administrations:', error);
 
     if (
       error instanceof Error &&
@@ -40,7 +32,7 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { error: 'Failed to fetch invoices from Moneybird' },
+      { error: 'Failed to fetch administrations' },
       { status: 502 }
     );
   }

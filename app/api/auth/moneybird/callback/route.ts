@@ -21,19 +21,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Verify state parameter in production
-
-    // Exchange code for access token (mock implementation)
-    const tokenResponse = await moneybirdApi.exchangeCodeForToken(code);
-
-    // Store tokens in session
+    // Get session and verify state parameter for CSRF protection
     const session = await getSession();
-    session.mbAccessToken = tokenResponse.access_token;
-    session.mbAdministrationId = tokenResponse.administration_id;
-    await session.save();
+    if (!state || state !== session.oauthState) {
+      return NextResponse.redirect(
+        new URL('/connect?error=invalid_state', request.url)
+      );
+    }
 
-    // Redirect to invoices page
-    return NextResponse.redirect(new URL('/invoices', request.url));
+    // Clear the state
+    session.oauthState = undefined;
+
+    try {
+      // Exchange code for access token
+      const tokenResponse = await moneybirdApi.exchangeCodeForToken(code);
+
+      // Store tokens in session
+      // Moneybird tokens currently don't expire, but prepare for future changes
+      const expiresAt = tokenResponse.expires_in
+        ? Math.floor(Date.now() / 1000) + tokenResponse.expires_in
+        : Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60; // 1 year from now as fallback
+
+      session.mbAccessToken = tokenResponse.access_token;
+      session.mbRefreshToken = tokenResponse.refresh_token;
+      session.mbTokenExpiresAt = expiresAt;
+      session.connected = true;
+
+      console.log('Token exchange successful:', {
+        hasAccessToken: !!tokenResponse.access_token,
+        hasRefreshToken: !!tokenResponse.refresh_token,
+        expiresIn: tokenResponse.expires_in,
+        expiresAt,
+      });
+
+      await session.save();
+
+      // Redirect to connect page for administration selection
+      return NextResponse.redirect(
+        new URL('/connect?step=select-admin', request.url)
+      );
+    } catch (tokenError) {
+      console.error('Token exchange error:', tokenError);
+      return NextResponse.redirect(
+        new URL('/connect?error=token_exchange_failed', request.url)
+      );
+    }
   } catch (error) {
     console.error('Moneybird OAuth callback error:', error);
     return NextResponse.redirect(
